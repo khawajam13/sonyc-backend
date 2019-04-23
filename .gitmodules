@@ -1,3 +1,6 @@
 [submodule "nfs"]
 	path = nfs
 	url = https://github.com/Mohitsharma44/nfsserver-alpine
+[submodule "playbooks/docker-swarm"]
+	path = playbooks/docker-swarm
+	url = https://github.com/Mohitsharma44/nfansible-docker-swarm.git
