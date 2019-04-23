@@ -1,0 +1,13 @@
+[docker_swarm_manager]
+master ansible_host=192.168.200.10 docker_swarm_labels="{'type':'control'}"
+
+[docker_swarm_worker]
+worker1 ansible_host=192.168.200.11 docker_swarm_labels="{'type':'ingestion'}"
+worker2 ansible_host=192.168.200.12 docker_swarm_labels="{'type':'ingestion'}"
+
+[all:vars]
+ansible_ssh_user=vagrant
+ansible_port=22
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_private_key_file=~/.vagrant.d/insecure_private_key
+ansible_ssh_common_args= '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'

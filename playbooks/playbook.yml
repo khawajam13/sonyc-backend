@@ -1,0 +1,12 @@
+---
+
+# This playbook will install docker and setup swarm
+
+- hosts: all
+  become: True
+  vars:
+    - docker_swarm_network_interface: enp0s8
+  tasks:
+    - name: Setup Docker and Docker Swarm
+      include_role:
+        name: docker-swarm
