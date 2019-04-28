@@ -2,7 +2,7 @@
 
 # This playbook will install docker and setup swarm
 
-- hosts: all
+- hosts: docker_swarm_manager,docker_swarm_worker
   become: True
   vars:
     - docker_swarm_network_interface: enp0s8
@@ -10,3 +10,101 @@
     - name: Setup Docker and Docker Swarm
       include_role:
         name: docker-swarm
+
+- hosts: docker_swarm_manager
+  become: True
+  tasks:
+    - name: set primary master as fact
+      tags:
+        - nfsserver
+      set_fact:
+        docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
+
+    - name: Install pip
+      package:
+        name:
+          - python3-pip
+
+    - name: Install docker using pip
+      pip:
+        name:
+          - docker
+        state: latest
+
+    - name: setting up nfs server on master
+      tags:
+        - nfsserver
+      docker_container:
+        name: nfs
+        image: mohitsharma44/nfsserver-alpine:latest
+        volumes:
+          - /nfsshare:/nfsshare
+        ports:
+          - "2049:2049"
+        env:
+          SHARED_DIRECTORY: "/nfsshare"
+        privileged: yes
+        recreate: yes
+        restart: yes
+      when:
+        # Run this only on primary swarm manager
+        - inventory_hostname == docker_swarm_primary_manager_name
+
+- hosts: docker_swarm_worker
+  gather_facts: no
+  become: True
+  vars:
+    istest: true
+    nfs_shares:
+      - mnt_path: /nfsshare
+        remote_path: foo
+        nfs_mount_opts: auto,nofail,ro,noatime,nolock,intr,tcp,actimeo=1800
+  tasks:
+    - name: set primary master as fact
+      tags:
+        - nfsclient
+      set_fact:
+        docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
+      when: not istest
+
+    #- name: Set remote path as fact
+    #  tags:
+    #    - nfsclient
+    #  set_fact:
+    #    remote_path: "{{ hostvars[docker_swarm_primary_manager_name]['ansible_default_ipv4']['address'] }}:/"
+
+    - name: Adding remote_path to nfs_shares dict
+      tags:
+        - nfsclient
+      set_fact:
+        nfs_shares: "{{ nfs_shares | default([]) | combine({'remote_path': remote_path}) }}"
+        #"{{ item.remote_path }}": remote_path
+        #nfs_shares: "{{ nfs_shares | combine(nfsremote_path, recursive=True) }}"
+      vars:
+        remote_path: "{{ hostvars[docker_swarm_primary_manager_name]['ansible_default_ipv4']['address'] }}:/"
+      when: not istest
+      with_items:
+        - "{{ nfs_shares }}"
+
+    - debug:
+        msg: >-
+          "RemotePath: {{ nfs_shares }}"
+
+    - name: Mounting nfsshare on worker nodes
+      tags:
+        - nfsclient
+      include_role:
+        name: mohitsharma44.nfs-client
+      when: not istest
+
+- hosts: testbuntus
+  become: True
+  tasks:
+    - name: Install openvpn client
+      package:
+        name: openvpn
+        state: present
+
+    - name: Copy configuration file
+      synchronize:
+        src:
