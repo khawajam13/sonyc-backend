@@ -1,0 +1,33 @@
+---
+
+- hosts: testbuntus
+  become: True
+  tasks:
+    - name: SETUPCLIENTS | Install openvpn client
+      package:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - openvpn
+        - resolvconf
+
+    - name: SETUPCLIENTS | Copy configuration file
+      synchronize:
+        src: "/etc/openvpn/clients/{{ inventory_hostname }}.conf"
+        dest: "/etc/openvpn/client.conf"
+      delegate_to: "{{ groups['docker_swarm_manager'] | first }}"
+
+    - name: SETUPCLIENTS | Restart OpenVPN
+      service:
+        name: openvpn
+        state: restarted
+
+    - name: SETUPCLIENTS | GatherFacts again
+      setup:
+
+    - name: SETUPCLIENTS | Get OpenVPN IP\'s
+      set_fact:
+        vpn_ip: "{{ ansible_tun0.ipv4.address }}"
+
+    - debug:
+        msg: "VPN_IP: {{ vpn_ip }}"

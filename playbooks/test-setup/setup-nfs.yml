@@ -1,0 +1,77 @@
+---
+
+- hosts: docker_swarm_manager
+  become: True
+  vars:
+    - istest: True
+  tasks:
+    - name: set primary master as fact
+      tags:
+        - nfsserver
+      set_fact:
+        docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
+
+    - name: NFSSERVER | Install pip
+      package:
+        name:
+          - python3-pip
+
+    - name: NFSSERVER | Install docker using pip
+      pip:
+        name:
+          - docker
+        state: latest
+
+    - name: NFSSERVER | setting up nfs server on master
+      tags:
+        - nfsserver
+      docker_container:
+        name: nfs
+        image: mohitsharma44/nfsserver-alpine:latest
+        volumes:
+          - /nfsshare:/nfsshare
+        ports:
+          - "2049:2049"
+        env:
+          SHARED_DIRECTORY: "/nfsshare"
+        privileged: yes
+        recreate: yes
+        restart: yes
+      when:
+        # Run this only on primary swarm manager
+        - inventory_hostname == docker_swarm_primary_manager_name
+
+- hosts: docker_swarm_worker
+  become: True
+  gather_facts: no
+  vars:
+    istest: "{{ istest | default(False) }}"
+    nfs_shares:
+      - mnt_path: /nfsshare
+        remote_path: "{{ remote_path | default('/nfsshare') }}"
+        nfs_mount_opts: auto,nofail,ro,noatime,nolock,intr,tcp,actimeo=1800
+  tasks:
+    - name: NFSCLIENT | set primary master as fact
+      tags:
+        - nfsclient
+      set_fact:
+        docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
+      when: not istest
+
+    - name: NFSCLIENT | Adding remote_path to nfs_shares dict
+      tags:
+        - nfsclient
+      set_fact:
+        nfs_shares: "{{ nfs_shares | default([]) | combine({'remote_path': remote_path}) }}"
+      vars:
+        remote_path: "{{ hostvars[docker_swarm_primary_manager_name]['ansible_default_ipv4']['address'] }}:/"
+      when: not istest
+      with_items:
+        - "{{ nfs_shares }}"
+
+    - name: NFSCLIENT | Mounting nfsshare on worker nodes
+      tags:
+        - nfsclient
+      include_role:
+        name: mohitsharma44.nfs-client
+      when: not istest

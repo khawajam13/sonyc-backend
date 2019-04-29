@@ -1,0 +1,108 @@
+---
+
+- hosts: docker_swarm_manager
+  become: True
+  vars:
+    - istest: "{{ istest | default(False) }}"
+  tasks:
+    - name: OPENVPN | set primary master as fact
+      tags:
+        - nfsserver
+      set_fact:
+        docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
+
+    - name: OPENVPN | Install pip
+      package:
+        name:
+          - python3-pip
+
+    - name: OPENVPN | Install docker using pip
+      pip:
+        name:
+          - docker
+        state: latest
+
+    - name: OPENVPN | setting up nfs server on master
+      tags:
+        - nfsserver
+      docker_container:
+        name: nfs
+        image: mohitsharma44/nfsserver-alpine:latest
+        volumes:
+          - /nfsshare:/nfsshare
+        ports:
+          - "2049:2049"
+        env:
+          SHARED_DIRECTORY: "/nfsshare"
+        privileged: yes
+        recreate: yes
+        restart: yes
+      when:
+        # Run this only on primary swarm manager
+        - inventory_hostname == docker_swarm_primary_manager_name
+
+    - name: OPENVPN | Generate openvpn configuration if it does not exist
+      docker_container:
+        name: openvpn_genconfig
+        image: kylemanna/openvpn
+        volumes:
+          - /nfsshare:/etc/openvpn
+          # IP address subnet ranges from 192.168.200.0/24 depending on number of workers
+          command: "ovpn_genconfig -u udp://{{ item }}.local -s 192.168.2{{ '%02d' | format(ind|int) }}.0/24"
+        recreate: yes
+        restart: no
+        log_driver: none
+      loop: "{{ groups['docker_swarm_worker'] | flatten(levels=1)}}"
+      loop_control:
+        index_var: ind
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+        - istest
+
+    - name: OPENVPN | Initialize the public key infrastructure
+      docker_container:
+        name: openvpn_pki
+        image: kylemanna/openvpn
+        volumes:
+          - /nfsshare:/etc/openvpn
+        env:
+          EASYRSA_BATCH: 1
+          EASYRSA_REQ_CN: TESTCA
+        command: "ovpn_initpki nopass"
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+        - istest
+
+    - name: OPENVPN | Generate the keys for testbuntus
+      docker_containers:
+        name: openvpn_keygen
+        image: kylemanna/openvpn
+        volumes:
+          - /nfsshare:/etc/openvpn
+        command: "easyrsa build-client-full {{ item }} nopass"
+      with_items:
+        - "{{ groups['testbuntus'] }}"
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+        - istest
+
+    - name: OPENVPN | Create client directory if it doesn\'t exist
+      file:
+        path: "/etc/openvpn/clients"
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: 0755
+
+    - name: OPENVPN | Obtain the Client certificates
+      docker_containers:
+        name: openvpn_getclient
+        image: kylemanna/openvpn
+        volumes:
+          - /nfsshare:/etc/openvpn
+        command: "ovpn_getclient $CLIENT | tee /etc/openvpn/clients/{{ item }}.ovpn"
+      with_items:
+        - "{{ groups['testbuntus'] }}"
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+        - istest
