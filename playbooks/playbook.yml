@@ -8,13 +8,13 @@
   tasks:
     - name: MAIN | Setup Docker and Docker Swarm
       include_role:
-        name: docker-swarm
+        name: mohitsharma44.ansible_docker_swarm
 
-    - name: MAIN | Setup NFS
-      include_tasks: ./test-setup/setup-nfs.yml
+- name: MAIN | Setup NFS
+  import_playbook: test-setup/setup-nfs.yml
 
-    - name: MAIN | Setup OpenVPN
-      include_tasks: ./test-setup/setup-openvpn.yml
+- name: MAIN | Setup OpenVPN
+  import_playbook: test-setup/setup-openvpn.yml
 
-    - name: MAIN | Test Clients
-      include_tasks: ./test-setup/test-clients.yml
+- name: MAIN | Setup Clients
+  import_playbook: test-setup/setup-clients.yml
