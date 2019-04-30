@@ -2,8 +2,9 @@
 
 - hosts: docker_swarm_manager
   become: True
+  serial: 1
   vars:
-    - istest: "{{ istest | default(False) }}"
+    - istest: 'true'
   tasks:
     - name: OPENVPN | set primary master as fact
       tags:
@@ -47,17 +48,17 @@
         image: kylemanna/openvpn
         volumes:
           - /nfsshare:/etc/openvpn
-          # IP address subnet ranges from 192.168.200.0/24 depending on number of workers
-          command: "ovpn_genconfig -u udp://{{ item }}.local -s 192.168.2{{ '%02d' | format(ind|int) }}.0/24"
-        recreate: yes
+        # IP address subnet ranges from 192.168.200.0/24 depending on number of workers
+        command: "ovpn_genconfig -u udp://{{ item }}.local -s 192.168.2{{ '%02d' | format(ind|int) }}.0/24"
+        recreate: no
         restart: no
-        log_driver: none
+        #log_driver: none
       loop: "{{ groups['docker_swarm_worker'] | flatten(levels=1)}}"
       loop_control:
         index_var: ind
       when:
         - inventory_hostname == docker_swarm_primary_manager_name
-        - istest
+        - istest | bool
 
     - name: OPENVPN | Initialize the public key infrastructure
       docker_container:
@@ -66,15 +67,25 @@
         volumes:
           - /nfsshare:/etc/openvpn
         env:
-          EASYRSA_BATCH: 1
-          EASYRSA_REQ_CN: TESTCA
+          EASYRSA_BATCH: "1"
+          EASYRSA_REQ_CN: "TESTCA"
         command: "ovpn_initpki nopass"
       when:
         - inventory_hostname == docker_swarm_primary_manager_name
-        - istest
+        - istest | bool
+
+    - name: OPENVPN | Waiting for Public Key Infrastructure container to finish
+      #shell: docker ps -a -f name=openvpn_pki --format {%raw%}"table {{.Status}}"{%endraw%} | awk 'FNR == 2 {print}' | awk '{print $1}'
+      #until: pkistatus.stdout.find('Exited') != -1
+      shell: docker inspect -f {%raw%}"{{.State.Running}}"{%endraw%} openvpn_pki
+      register: pkistatus
+      until: pkistatus.stdout.find('false') != -1
+      retries: 10
+      delay: 10
+      ignore_errors: yes
 
     - name: OPENVPN | Generate the keys for testbuntus
-      docker_containers:
+      docker_container:
         name: openvpn_keygen
         image: kylemanna/openvpn
         volumes:
@@ -84,25 +95,46 @@
         - "{{ groups['testbuntus'] }}"
       when:
         - inventory_hostname == docker_swarm_primary_manager_name
-        - istest
+        - istest | bool
 
     - name: OPENVPN | Create client directory if it doesn\'t exist
       file:
-        path: "/etc/openvpn/clients"
+        path: "/nfsshare/clients"
         state: directory
-        owner: vagrant
-        group: vagrant
-        mode: 0755
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+
+    - name: OPENVPN | Waiting for testbuntu keys to be generated
+      shell: docker inspect -f {%raw%}"{{.State.Running}}"{%endraw%} openvpn_keygen
+      register: keygenstatus
+      until: keygenstatus.stdout.find('false') != -1
+      retries: 10
+      delay: 10
 
     - name: OPENVPN | Obtain the Client certificates
-      docker_containers:
+      docker_container:
         name: openvpn_getclient
         image: kylemanna/openvpn
         volumes:
           - /nfsshare:/etc/openvpn
-        command: "ovpn_getclient $CLIENT | tee /etc/openvpn/clients/{{ item }}.ovpn"
+        command: ovpn_getclient {{ item }}
+        detach: no
+        tty: yes
+        interactive: yes
       with_items:
         - "{{ groups['testbuntus'] }}"
       when:
         - inventory_hostname == docker_swarm_primary_manager_name
-        - istest
+        - istest | bool
+      register: client_certs
+
+    - name: OPENVPN | Writing keys to file
+      copy:
+        content: "{{ item.ansible_facts.docker_container.Output }}"
+        dest: "/nfsshare/clients/{{item._ansible_item_label}}.ovpn"
+      loop: "{{ client_certs.results | flatten(levels=1) }}"
+      loop_control:
+        index_var: ind
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+        - istest | bool
