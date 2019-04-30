@@ -7,21 +7,21 @@ end
 servers=[
   {
     :hostname => "master",
-    :ip => "192.168.200.10",
+    :ip => "192.168.120.10",
     :box => "ubuntu/xenial64",
     :ram => 1024,
     :cpu => 2
   },
   {
     :hostname => "worker1",
-    :ip => "192.168.200.11",
+    :ip => "192.168.120.11",
     :box => "ubuntu/xenial64",
     :ram => 512,
     :cpu => 1
   },
   {
     :hostname => "worker2",
-    :ip => "192.168.200.12",
+    :ip => "192.168.120.12",
     :box => "ubuntu/xenial64",
     :ram => 512,
     :cpu => 1
@@ -35,7 +35,7 @@ servers=[
   },
   {
     :hostname => "testbuntu2",
-    :ip => "192.168.150.111",
+    :ip => "192.168.152.111",
     :box => "ubuntu/xenial64",
     :ram => 512,
     :cpu => 1
