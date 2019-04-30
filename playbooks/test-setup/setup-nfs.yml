@@ -3,7 +3,7 @@
 - hosts: docker_swarm_manager
   become: True
   vars:
-    - istest: True
+    - istest: 'true'
   tasks:
     - name: set primary master as fact
       tags:
@@ -45,7 +45,7 @@
   become: True
   gather_facts: no
   vars:
-    istest: "{{ istest | default(False) }}"
+    istest: 'true'
     nfs_shares:
       - mnt_path: /nfsshare
         remote_path: "{{ remote_path | default('/nfsshare') }}"
@@ -56,7 +56,7 @@
         - nfsclient
       set_fact:
         docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
-      when: not istest
+      when: not istest | bool
 
     - name: NFSCLIENT | Adding remote_path to nfs_shares dict
       tags:
@@ -65,7 +65,7 @@
         nfs_shares: "{{ nfs_shares | default([]) | combine({'remote_path': remote_path}) }}"
       vars:
         remote_path: "{{ hostvars[docker_swarm_primary_manager_name]['ansible_default_ipv4']['address'] }}:/"
-      when: not istest
+      when: not istest | bool
       with_items:
         - "{{ nfs_shares }}"
 
@@ -74,4 +74,4 @@
         - nfsclient
       include_role:
         name: mohitsharma44.nfs-client
-      when: not istest
+      when: not istest | bool
