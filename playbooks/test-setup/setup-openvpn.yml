@@ -51,12 +51,12 @@
       register: openvpn_template_file
 
     - name: OPENVPN | Generate openvpn configuration template if it does not exist
-      docker_contaner:
+      docker_container:
         name: openvpn_genconfig
         image: kylemanna/openvpn
         volumes:
           - /nfsshare:/etc/openvpn
-        command: "ovpn_genconfig -u udp://{{ openvpn_server }} -s {{ first_vpn_subnet }}"
+        command: "ovpn_genconfig -u udp://{{ docker_swarm_first_worker_name }} -s {{ first_vpn_subnet }}"
         recreate: no
         restart: no
       when:
