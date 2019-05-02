@@ -1,0 +1,16 @@
+---
+
+- name: OPENVPNCLIENT | Check if the config for "{{ openvpn_client }}" exists
+  stat:
+    path: "/nfsshare/clients/{{ openvpn_client }}.ovpn"
+  register: client_specific_conf
+
+- name: OPENVPNCLIENT | Add all servers as remote directive
+  lineinfile:
+    dest: "/nfsshare/clients/{{ openvpn_client }}.ovpn"
+    line: "remote {{ item }} {{ openvpn_port }} udp"
+    insertafter: 'remote-cert-tls server'
+  with_items:
+    - "{{ openvpn_servers }}"
+  when:
+    - client_specific_conf.stat.exists

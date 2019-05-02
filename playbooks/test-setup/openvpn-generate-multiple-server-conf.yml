@@ -1,0 +1,23 @@
+---
+
+- name: OPENVPNSERVER | Check if the config for "{{ openvpn_server }}" exists
+  stat:
+    path: "/nfsshare/{{ openvpn_server }}.conf"
+  register: server_specific_conf
+
+- name: OPENVPNSERVER | Create config for "{{ openvpn_server }}"
+  copy:
+    src: /nfsshare/openvpn.conf
+    dest: "/nfsshare/{{ openvpn_server }}.conf"
+    remote_src: True
+  when:
+    - not server_specific_conf.stat.exists
+
+- name: OPENVPNSERVER | Change the Subnet that will be offered by "{{ openvpn_server }}"
+  replace:
+    dest: /nfsshare/openvpn.conf
+    regexp: "{{ first_vpn_subnet }}"
+    replace: "192.168.2{{ '%02d' | format(index|int) }}.0/24"
+    backup: yes
+  when:
+    - not server_specific_conf.stat.exists
