@@ -4,6 +4,8 @@
   become: True
   serial: 1
   vars:
+    - first_vpn_subnet: '192.168.200.0/24'
+    - openvpn_port: '1194'
     - istest: 'true'
   tasks:
     - name: OPENVPN | set primary master as fact
@@ -11,6 +13,7 @@
         - nfsserver
       set_fact:
         docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
+        docker_swarm_first_worker_name: "{{ groups['docker_swarm_manager'] | first }}"
 
     - name: OPENVPN | Install pip
       package:
@@ -41,24 +44,52 @@
       when:
         # Run this only on primary swarm manager
         - inventory_hostname == docker_swarm_primary_manager_name
+        - not (istest | bool)
 
-    - name: OPENVPN | Generate openvpn configuration if it does not exist
-      docker_container:
+    - stat:
+        path: /nfsshare/openvpn.conf
+      register: openvpn_template_file
+
+    - name: OPENVPN | Generate openvpn configuration template if it does not exist
+      docker_contaner:
         name: openvpn_genconfig
         image: kylemanna/openvpn
         volumes:
           - /nfsshare:/etc/openvpn
-        # IP address subnet ranges from 192.168.200.0/24 depending on number of workers
-        command: "ovpn_genconfig -u udp://{{ item }}.local -s 192.168.2{{ '%02d' | format(ind|int) }}.0/24"
+        command: "ovpn_genconfig -u udp://{{ openvpn_server }} -s {{ first_vpn_subnet }}"
         recreate: no
         restart: no
-        #log_driver: none
-      loop: "{{ groups['docker_swarm_worker'] | flatten(levels=1)}}"
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+        - istest | bool
+        - not openvpn_template_file.stat.exists
+
+    - include: openvpn-generate-multiple-server-conf.yml openvpn_server="{{ item }}" index="{{ ind }}" first_vpn_subnet="{{ first_vpn_subnet }}"
+      loop: "{{ groups['docker_swarm_worker'] | zip_longest([], fillvalue='.local') | map('join') | join(',') }}"
       loop_control:
         index_var: ind
       when:
         - inventory_hostname == docker_swarm_primary_manager_name
         - istest | bool
+
+    #- name: OPENVPN | Generate openvpn configuration if it does not exist
+    #  docker_container:
+    #    name: openvpn_genconfig
+    #    image: kylemanna/openvpn
+    #    volumes:
+    #      - /nfsshare:/etc/openvpn
+    #    # IP address subnet ranges from 192.168.200.0/24 depending on number of workers
+    #    command: "ovpn_genconfig -u udp://{{ item }}.local -s 192.168.2{{ '%02d' | format(ind|int) }}.0/24"
+    #    #command: "ovpn_genconfig -u udp://{{ item }}.local -s 192.168.200.0/24"
+    #    recreate: no
+    #    restart: no
+    #    #log_driver: none
+    #  loop: "{{ groups['docker_swarm_worker'] | flatten(levels=1)}}"
+    #  loop_control:
+    #    index_var: ind
+    #  when:
+    #    - inventory_hostname == docker_swarm_primary_manager_name
+    #    - istest | bool
 
     - name: OPENVPN | Initialize the public key infrastructure
       docker_container:
@@ -132,6 +163,14 @@
       copy:
         content: "{{ item.ansible_facts.docker_container.Output }}"
         dest: "/nfsshare/clients/{{item._ansible_item_label}}.ovpn"
+      loop: "{{ client_certs.results | flatten(levels=1) }}"
+      loop_control:
+        index_var: ind
+      when:
+        - inventory_hostname == docker_swarm_primary_manager_name
+        - istest | bool
+
+    - include: openvpn-generate-multiple-client-conf.yml openvpn_client="{{ item._ansible_item_label }}" openvpn_port="{{ openvpn_port }}" openvpn_servers="{{ groups['docker_swarm_worker'] }}"
       loop: "{{ client_certs.results | flatten(levels=1) }}"
       loop_control:
         index_var: ind
