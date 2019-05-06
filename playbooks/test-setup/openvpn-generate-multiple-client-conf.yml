@@ -8,7 +8,7 @@
 - name: OPENVPNCLIENT | Add all servers as remote directive
   lineinfile:
     dest: "/nfsshare/clients/{{ openvpn_client }}.ovpn"
-    line: "remote {{ item }} {{ openvpn_port }} udp"
+    line: "remote {{ item }} {{ vpn_port }} udp"
     insertafter: 'remote-cert-tls server'
   with_items:
     - "{{ openvpn_servers }}"

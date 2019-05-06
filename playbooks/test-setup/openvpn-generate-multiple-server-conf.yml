@@ -15,8 +15,8 @@
 
 - name: OPENVPNSERVER | Change the Subnet that will be offered by "{{ openvpn_server }}"
   replace:
-    dest: /nfsshare/openvpn.conf
-    regexp: "{{ first_vpn_subnet }}"
+    dest: "/nfsshare/{{ openvpn_server }}.conf"
+    regexp: "{{ vpn_subnet }}"
     replace: "192.168.2{{ '%02d' | format(index|int) }}.0/24"
     backup: yes
   when:
