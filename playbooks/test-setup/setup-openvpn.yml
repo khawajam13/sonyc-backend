@@ -64,8 +64,9 @@
         - istest | bool
         - not openvpn_template_file.stat.exists
 
-    - include: openvpn-generate-multiple-server-conf.yml openvpn_server="{{ item }}" index="{{ ind }}" first_vpn_subnet="{{ first_vpn_subnet }}"
-      loop: "{{ groups['docker_swarm_worker'] | zip_longest([], fillvalue='.local') | map('join') | join(',') }}"
+    - include: openvpn-generate-multiple-server-conf.yml openvpn_server="{{ item }}" index="{{ ind }}" vpn_subnet="{{ first_vpn_subnet }}"
+      loop: "{{ groups['docker_swarm_worker'] }}"
+      #loop: "{{ groups['docker_swarm_worker'] | zip_longest([], fillvalue='.local') | map('join') | list }}"
       loop_control:
         index_var: ind
       when:
@@ -111,7 +112,7 @@
       shell: docker inspect -f {%raw%}"{{.State.Running}}"{%endraw%} openvpn_pki
       register: pkistatus
       until: pkistatus.stdout.find('false') != -1
-      retries: 10
+      retries: 30
       delay: 10
       ignore_errors: yes
 
@@ -170,10 +171,29 @@
         - inventory_hostname == docker_swarm_primary_manager_name
         - istest | bool
 
-    - include: openvpn-generate-multiple-client-conf.yml openvpn_client="{{ item._ansible_item_label }}" openvpn_port="{{ openvpn_port }}" openvpn_servers="{{ groups['docker_swarm_worker'] }}"
+    - include: openvpn-generate-multiple-client-conf.yml openvpn_client="{{ client_item._ansible_item_label }}" vpn_port="{{ openvpn_port }}" openvpn_servers="{{ groups['docker_swarm_worker'] }}"
       loop: "{{ client_certs.results | flatten(levels=1) }}"
       loop_control:
+        loop_var: client_item
         index_var: ind
       when:
         - inventory_hostname == docker_swarm_primary_manager_name
         - istest | bool
+
+- hosts: all
+  become: True
+  tasks:
+  - name: OPENVPNSERVER | Starting VPN Servers
+    docker_container:
+      name: vpn-server
+      image: kylemanna/openvpn
+      command: "ovpn_run --config /etc/openvpn/{{ inventory_hostname }}.conf"
+      volumes:
+        - /nfsshare:/etc/openvpn
+      ports:
+        - "1194:1194"
+      privileged: yes
+      recreate: yes
+      restart: yes
+    when:
+      - inventory_hostname in groups['docker_swarm_worker']
