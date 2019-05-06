@@ -11,16 +11,6 @@
       set_fact:
         docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
 
-    - name: NFSSERVER | Install pip
-      package:
-        name:
-          - python3-pip
-
-    - name: NFSSERVER | Install docker using pip
-      pip:
-        name:
-          - docker
-        state: latest
 
     - name: NFSSERVER | setting up nfs server on master
       tags:
@@ -40,6 +30,29 @@
       when:
         # Run this only on primary swarm manager
         - inventory_hostname == docker_swarm_primary_manager_name
+
+
+- hosts: all
+  become: True
+  tasks:
+    - name: ALL | Install pip
+      package:
+        name:
+          - python3-pip
+
+    - name: ALL | Install docker using pip
+      pip:
+        name:
+          - docker
+        state: latest
+
+    - name: ALL | Symlink /nfsshare to /etc/openvpn
+      file:
+        src: '/nfsshare'
+        path: '/etc/openvpn'
+        state: link
+      when:
+        ansible_ssh_host in groups['docker_swarm_worker']
 
 - hosts: docker_swarm_worker
   become: True
