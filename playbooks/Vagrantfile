@@ -6,35 +6,35 @@ end
 
 servers=[
   {
-    :hostname => "master",
+    :hostname => "master.local",
     :ip => "192.168.120.10",
     :box => "ubuntu/xenial64",
     :ram => 1024,
     :cpu => 2
   },
   {
-    :hostname => "worker1",
+    :hostname => "worker1.local",
     :ip => "192.168.120.11",
     :box => "ubuntu/xenial64",
     :ram => 512,
     :cpu => 1
   },
   {
-    :hostname => "worker2",
+    :hostname => "worker2.local",
     :ip => "192.168.120.12",
     :box => "ubuntu/xenial64",
     :ram => 512,
     :cpu => 1
   },
   {
-    :hostname => "testbuntu1",
+    :hostname => "testbuntu1.local",
     :ip => "192.168.151.111",
     :box => "ubuntu/xenial64",
     :ram => 512,
     :cpu => 1
   },
   {
-    :hostname => "testbuntu2",
+    :hostname => "testbuntu2.local",
     :ip => "192.168.152.111",
     :box => "ubuntu/xenial64",
     :ram => 512,
