@@ -11,12 +11,12 @@
       set_fact:
         docker_swarm_primary_manager_name: "{{ groups['docker_swarm_manager'] | first }}"
 
-    - name: ALL | Install pip
+    - name: PRESETUP | Install pip
       package:
         name:
           - python3-pip
 
-    - name: ALL | Install docker using pip
+    - name: PRESETUP | Install docker using pip
       pip:
         name:
           - docker
