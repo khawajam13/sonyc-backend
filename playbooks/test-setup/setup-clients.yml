@@ -3,6 +3,7 @@
 - hosts: testbuntus
   become: True
   tasks:
+
     - name: SETUPCLIENTS | Install openvpn client
       package:
         name: "{{ item }}"
@@ -17,6 +18,14 @@
         dest: "/etc/openvpn/client.conf"
       delegate_to: "{{ groups['docker_swarm_manager'] | first }}"
       become_flags: '-HE'
+
+    - name: SETUPCLIENTS | Enable Autostart openvpn
+      lineinfile:
+        dest: /etc/default/openvpn
+        regexp: '^#\s*AUTOSTART="all"$'
+        line: 'AUTOSTART="all"'
+        backrefs: yes
+        state: present
 
     - name: SETUPCLIENTS | Restart OpenVPN
       service:
