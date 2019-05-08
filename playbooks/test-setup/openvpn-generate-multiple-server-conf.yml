@@ -13,11 +13,15 @@
   when:
     - not server_specific_conf.stat.exists
 
+- debug:
+    msg: >-
+      Replace --> {{ vpn_subnet }} with --> 192.168.2{{ '%02d' | format(index|int) }}.0
+
 - name: OPENVPNSERVER | Change the Subnet that will be offered by "{{ openvpn_server }}"
   replace:
     dest: "/nfsshare/{{ openvpn_server }}.conf"
     regexp: "{{ vpn_subnet }}"
-    replace: "192.168.2{{ '%02d' | format(index|int) }}.0/24"
+    replace: "192.168.2{{ '%02d' | format(index|int) }}.0 255.255.255.0"
     backup: yes
   when:
     - not server_specific_conf.stat.exists
