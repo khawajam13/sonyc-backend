@@ -13,11 +13,14 @@
 - name: MAIN | Setup NFS
   import_playbook: test-setup/setup-nfs.yml
 
-- name: MAIN | Setup OpenVPN
-  import_playbook: test-setup/setup-openvpn.yml
+- name: MAIN | Setup worker OpenVPN servers
+  import_playbook: test-setup/setup-openvpn-workers.yml
 
-- name: MAIN | Add to Hosts
-  import_playbook: test-setup/add-inventory-to-hosts.yml
+# - name: MAIN | Setup OpenVPN
+#   import_playbook: test-setup/setup-openvpn.yml
 
-- name: MAIN | Setup Test Clients
-  import_playbook: test-setup/setup-clients.yml
+#- name: MAIN | Add to Hosts
+#  import_playbook: test-setup/add-inventory-to-hosts.yml
+
+#- name: MAIN | Setup Test Clients
+#  import_playbook: test-setup/setup-clients.yml

@@ -1,0 +1,52 @@
+# ansible-playbook -i inventory generate_client_cert.yml --extra-vars "certificate_name=<SOME_CERTIFICATE_NAME>" --ask-become-pass
+---
+
+- hosts: docker_swarm_manager
+  become: True
+  serial: 1
+
+  
+  vars:
+    certificate_name_string: "{{ certificate_name }}"
+
+  tasks:
+    - name: OPENVPN | Create client certificate
+      docker_container:
+        name: openvpn_gencert
+        image: kylemanna/openvpn
+        volumes:
+          - /nfsshare:/etc/openvpn
+        command: "easyrsa build-client-full {{ certificate_name_string }} nopass"
+        privileged: yes
+        recreate: no
+        restart: no
+        detach: no
+
+    - name: OPENVPN | Create certificate directory if it does not exist
+      file:
+        path: /nfsshare/client_configs
+        state: directory
+        mode: '0755'
+
+    - name: OPENVPN | Save generated certificate to keys folder
+      shell: docker run -v /nfsshare:/etc/openvpn --rm kylemanna/openvpn ovpn_getclient {{ certificate_name_string }} > /nfsshare/client_configs/{{ certificate_name_string }}.ovpn
+
+    - name: OPENVPN | Remove master remote line from config file
+      shell: sed --in-place '/{{ inventory_hostname }}/d' /nfsshare/client_configs/{{ certificate_name_string }}.ovpn
+    
+
+
+
+- hosts: docker_swarm_worker
+  become: True
+  gather_facts: no
+
+  vars:
+    certificate_name_string: "{{ certificate_name }}"
+
+  tasks:
+    - name: OPENVPN | Add server remote config to certificate file
+      lineinfile:
+        path: /nfsshare/client_configs/{{ certificate_name_string }}.ovpn
+        line: remote {{ inventory_hostname }} {{ vpn_port }} udp
+        create: yes

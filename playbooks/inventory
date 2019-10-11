@@ -1,16 +1,17 @@
 [docker_swarm_manager]
-master.local ansible_host=192.168.120.10 docker_swarm_labels="{'type':'control'}"
+master1.cusp.nyu.edu ansible_host=128.122.72.33 docker_swarm_labels="{'type':'control'}" vpn_port=8888
 
 [docker_swarm_worker]
-worker1.local ansible_host=192.168.120.11 docker_swarm_labels="{'type':'ingestion'}"
-worker2.local ansible_host=192.168.120.12 docker_swarm_labels="{'type':'ingestion'}"
+## worker1.cusp.nyu.edu ansible_host=128.122.72.31 docker_swarm_labels="{'type':'ingestion'}" vpn_subnet=10.8.0 vpn_port=8888
+worker2.cusp.nyu.edu ansible_host=128.122.72.32 docker_swarm_labels="{'type':'ingestion'}" vpn_subnet=10.9.0 vpn_port=8888
 
 [testbuntus]
-testbuntu1.local  ansible_host=192.168.151.111
-testbuntu2.local  ansible_host=192.168.152.111
+## testbuntu1.local  ansible_host=192.168.151.111
+## testbuntu2.local  ansible_host=192.168.152.111
 
 [all:vars]
-ansible_ssh_user=vagrant
+ansible_ssh_user=sonyc
 ansible_python_interpreter=/usr/bin/python3
-ansible_ssh_private_key_file=~/.vagrant.d/insecure_private_key
-ansible_ssh_common_args= '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+default_subnet=10.7.0
+## ansible_ssh_private_key_file=~/.vagrant.d/insecure_private_key
+##ansible_ssh_common_args= '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'

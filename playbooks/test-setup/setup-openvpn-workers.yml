@@ -1,0 +1,165 @@
+---
+
+- hosts: docker_swarm_manager
+  become: True
+  serial: 1
+
+  tasks:
+    - name: OPENVPN | Generate config for master VPN (only to allow for cert generation)
+      docker_container:
+        name: openvpn_genconfig
+        image: kylemanna/openvpn
+        #network_mode: none
+        volumes:
+          - /nfsshare:/etc/openvpn
+        #command: "ovpn_genconfig -u udp://{{ inventory_hostname }}"
+        command: "ovpn_genconfig -u udp://{{ inventory_hostname }}:{{ vpn_port }} -s {{ default_subnet }}.0/24 -N -d -c -p 'route {{ default_subnet }}.0 255.255.255.0' -e 'topology subnet'"
+        privileged: yes
+        recreate: no
+        restart: no
+        detach: no
+
+    - name: OPENVPN | Initialize the public key infrastructure
+      docker_container:
+        name: openvpn_pki
+        image: kylemanna/openvpn
+        volumes:
+          - /nfsshare:/etc/openvpn
+        env:
+          EASYRSA_BATCH: "1"
+          EASYRSA_REQ_CN: "PROJECT_CA"
+        command: "ovpn_initpki nopass"
+        recreate: no
+        restart: no
+        detach: no
+        privileged: yes
+
+- hosts: docker_swarm_worker
+  become: True
+  gather_facts: no
+
+  tasks:
+    # - name: Worker OpenVPN | print info
+    #   debug:
+    #     msg: "ovpn_genconfig -u udp://{{ inventory_hostname }}:{{ vpn_port }} -N -d -c -p 'route {{ vpn_subnet }}.0 255.255.255.0' -e 'topology subnet'"
+
+    - name: OPENVPN | Setup docker network
+      docker_network:
+        name: docker-net-vpn
+        attachable: true
+        driver: bridge
+        ipam_config:
+          - subnet: "{{ vpn_subnet }}.0/24"
+            gateway: "{{ vpn_subnet }}.1"
+
+    - name: OPENVPN | Rename config file for each worker
+      command: cp /nfsshare/openvpn.conf /nfsshare/{{ inventory_hostname }}.conf
+
+    - name: OPENVPN | Replace default subnet mentions within new workers VPN config file
+      replace:
+        path: /nfsshare/{{ inventory_hostname }}.conf
+        regexp: '{{ default_subnet }}'
+        replace: '{{ vpn_subnet }}'
+
+    - name: OPENVPN | Set host routes
+      command: sysctl -w net.ipv4.ip_forward=1 && iptables -A FORWARD -i tun+ -j ACCEPT && ip route add 192.168.255.0/24 via {{ vpn_subnet }}.2
+
+    - name: OPENVPN | Start VPN server containers
+      docker_container:
+        name: vpn-server
+        image: kylemanna/openvpn
+        networks:
+          - name: docker-net-vpn
+            ipv4_address: "{{ vpn_subnet }}.2"
+        command: "ovpn_run --config /etc/openvpn/{{ inventory_hostname }}.conf"
+        volumes:
+          - /nfsshare:/etc/openvpn
+        ports:
+          - "{{ vpn_port }}:1194/udp"
+        capabilities:
+          - NET_ADMIN
+        privileged: yes
+        recreate: yes
+        restart: yes
+        detach: yes
+
+    # - name: OPENVPN | Create openvpn directory for worker
+    #   file:
+    #     path: /nfsshare/{{ inventory_hostname }}
+    #     state: directory
+    #     mode: '0755'
+
+    # - name: OPENVPN | Generate config for VPN container
+    #   docker_container:
+    #     name: openvpn_genconfig
+    #     image: kylemanna/openvpn
+    #     #network_mode: none
+    #     volumes:
+    #       - /nfsshare/{{ inventory_hostname }}:/etc/openvpn
+    #     command: "ovpn_genconfig -u udp://{{ inventory_hostname }}:{{ vpn_port }} -s {{ vpn_subnet }}.0/24 -N -d -c -p 'route {{ vpn_subnet }}.0 255.255.255.0' -e 'topology subnet'"
+    #     #command: "ovpn_genconfig -u udp://{{ inventory_hostname }}:{{ vpn_port }} -N -d -c -p 'route {{ vpn_subnet }}.0 255.255.255.0' -e 'topology subnet'"
+    #     privileged: yes
+    #     recreate: no
+    #     restart: no
+    #     detach: no
+
+
+
+
+
+
+
+
+
+
+
+# - hosts: docker_swarm_manager
+#   become: True
+#   serial: 1
+
+#   tasks:
+#     - name: OPENVPN | Initialize the public key infrastructure
+#       docker_container:
+#         name: openvpn_pki
+#         image: kylemanna/openvpn
+#         volumes:
+#           - /nfsshare:/etc/openvpn
+#         env:
+#           EASYRSA_BATCH: "1"
+#           EASYRSA_REQ_CN: "TESTCA"
+#         command: "ovpn_initpki nopass"
+#         detach: no
+#         privileged: yes
+
+# - hosts: docker_swarm_worker
+#   become: True
+#   gather_facts: no
+
+#   tasks:
+#     - name: OPENVPN | Copy pki folder to worker folders
+#       shell: cp -r /nfsshare/pki /nfsshare/{{ inventory_hostname }}/pki
+
+#     - name: OPENVPN | Rename pki/issued crt file to match worker
+#       command: mv /nfsshare/{{ inventory_hostname }}/pki/issued/{{ groups['docker_swarm_manager'] | first }}.crt /nfsshare/{{ inventory_hostname }}/pki/issued/{{ inventory_hostname }}.crt
+
+#     - name: OPENVPN | Rename pki/private key file to match worker
+#       command: mv /nfsshare/{{ inventory_hostname }}/pki/private/{{ groups['docker_swarm_manager'] | first }}.key /nfsshare/{{ inventory_hostname }}/pki/private/{{ inventory_hostname }}.key
+
+#     - name: OPENVPN | Start VPN server containers
+#       docker_container:
+#         name: vpn-server
+#         image: kylemanna/openvpn
+#         networks:
+#           - name: docker-net-vpn
+#             ipv4_address: "{{ vpn_subnet }}.2"
+#         command: "ovpn_run --config /etc/openvpn/openvpn.conf"
+#         volumes:
+#           - /nfsshare/{{ inventory_hostname }}:/etc/openvpn
+#         ports:
+#           - "{{ vpn_port }}:1194/udp"
+#         capabilities:
+#           - NET_ADMIN
+#         privileged: yes
+#         recreate: yes
+#         restart: yes
+#         detach: yes

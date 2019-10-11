@@ -1,5 +1,15 @@
 ---
 
+- hosts: docker_swarm_worker
+  become: True
+  gather_facts: no
+
+  tasks:
+    - name: NFSCLIENT | unmounting existing /nfsshare mount
+      command: "umount -lf /nfsshare"
+      become: True
+      ignore_errors: yes
+
 - hosts: docker_swarm_manager
   become: True
   vars:
@@ -45,18 +55,17 @@
 - hosts: all
   become: True
   tasks:
-
-
-
+    
 - hosts: docker_swarm_worker
   become: True
   gather_facts: no
   vars:
-    istest: 'true'
+    istest: 'false'
     nfs_shares:
       - mnt_path: /nfsshare
         remote_path: "{{ remote_path | default('/nfsshare') }}"
         nfs_mount_opts: auto,nofail,ro,noatime,nolock,intr,tcp,actimeo=1800
+  
   tasks:
     - name: NFSCLIENT | set primary master as fact
       tags:
@@ -76,11 +85,11 @@
           - docker
         state: latest
 
-    - name: SWARMWORKER | Symlink /nfsshare to /etc/openvpn
-      file:
-        src: '/nfsshare'
-        path: '/etc/openvpn'
-        state: link
+    # - name: SWARMWORKER | Symlink /nfsshare to /etc/openvpn
+    #   file:
+    #     src: '/nfsshare'
+    #     path: '/etc/openvpn'
+    #     state: link
 
     - name: NFSCLIENT | Adding remote_path to nfs_shares dict
       tags:
