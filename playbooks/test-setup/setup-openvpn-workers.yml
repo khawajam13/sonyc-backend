@@ -12,7 +12,7 @@
         #network_mode: none
         volumes:
           - /nfsshare:/etc/openvpn
-        command: "ovpn_genconfig -u udp://{{ inventory_hostname }}:{{ vpn_port }} -s {{ default_subnet }}.0/24 -N -d -c -p 'route {{ default_subnet }}.0 255.255.255.0' -e 'topology subnet'"
+        command: "ovpn_genconfig -u udp://{{ inventory_hostname }}:{{ vpn_port }} -s {{ default_subnet }}.0/24 -N -d -c -p 'route {{ default_subnet }}.0 255.255.255.0' -p 'register-dns' -p 'block-ipv6' -p dhcp-option DNS {{ default_subnet }}.1 -e 'topology subnet'"
         privileged: yes
         recreate: no
         restart: no
@@ -128,6 +128,10 @@
 
     - name: OPENVPN | Remove master remote line from config file
       shell: sed --in-place '/{{ inventory_hostname }}/d' /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn
+
+    - name: OPENVPN | Add server remote config to cert file and create one for each worker in master /etc/openvpn
+      shell: echo "remote {{ item }} {{ vpn_port }} udp" >> /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn && cp /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn /etc/openvpn/{{ item }}.conf && sed --in-place '/{{ item }}/d' /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn
+      with_items: "{{ groups['docker_swarm_worker'] }}"
 
     - name: OPENVPN | Kill existing openvpn instances
       command: killall openvpn
