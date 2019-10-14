@@ -1,15 +1,16 @@
 [docker_swarm_manager]
-master1.cusp.nyu.edu ansible_host=128.122.72.33 docker_swarm_labels="{'type':'control'}" vpn_port=8888
+master1.cusp.nyu.edu ansible_host=128.122.72.33 docker_swarm_labels="{'type':'control'}"
 
 [docker_swarm_worker]
-## worker1.cusp.nyu.edu ansible_host=128.122.72.31 docker_swarm_labels="{'type':'ingestion'}" vpn_subnet=10.8.0 vpn_port=8888
-worker2.cusp.nyu.edu ansible_host=128.122.72.32 docker_swarm_labels="{'type':'ingestion'}" vpn_subnet=10.9.0 vpn_port=8888
+worker1.cusp.nyu.edu ansible_host=128.122.72.31 docker_swarm_labels="{'type':'ingestion'}" vpn_subnet=10.8.0
+worker2.cusp.nyu.edu ansible_host=128.122.72.32 docker_swarm_labels="{'type':'ingestion'}" vpn_subnet=10.9.0
 
 [testbuntus]
 ## testbuntu1.local  ansible_host=192.168.151.111
 ## testbuntu2.local  ansible_host=192.168.152.111
 
 [all:vars]
+vpn_port = 8888
 ansible_ssh_user=sonyc
 ansible_python_interpreter=/usr/bin/python3
 default_subnet=10.7.0

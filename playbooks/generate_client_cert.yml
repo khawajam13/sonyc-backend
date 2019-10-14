@@ -45,8 +45,11 @@
     certificate_name_string: "{{ certificate_name }}"
 
   tasks:
-    - name: OPENVPN | Add server remote config to certificate file
-      lineinfile:
-        path: /nfsshare/client_configs/{{ certificate_name_string }}.ovpn
-        line: remote {{ inventory_hostname }} {{ vpn_port }} udp
-        create: yes
+    #- name: OPENVPN | Add server remote config to certificate file
+    #  lineinfile:
+    #    path: /nfsshare/client_configs/{{ certificate_name_string }}.ovpn
+    #    line: remote {{ inventory_hostname }} {{ vpn_port }} udp
+    #    create: yes
+
+    - name: OPENVPN | Add server remote config to cert file
+      shell: echo "remote {{ inventory_hostname }} {{ vpn_port }} udp" >> /nfsshare/client_configs/{{ certificate_name_string }}.ovpn
