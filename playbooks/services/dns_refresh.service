@@ -1,0 +1,9 @@
+[Unit]
+Description=DNSmasq refresh
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'while true; do /usr/bin/killall -s SIGHUP dnsmasq && /bin/sleep 1; done'
+Restart=always
+User=root
+[Install]
+WantedBy=multi-user.target

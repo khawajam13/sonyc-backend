@@ -1,0 +1,38 @@
+---
+
+- hosts: docker_swarm_manager
+  become: True
+  serial: 1
+
+  tasks:
+
+    - name: DNSmasq | Create custom hosts file for DNSMasq to read
+      file:
+        path: "/nfsshare/hosts"
+        state: touch
+        mode: 0777
+
+    - name: DNSmasq | Uninstall dnsmasq on master
+      apt: name=dnsmasq state=absent purge=yes
+
+    - name: DNSmasq | Install dnsmasq on master
+      apt: name=dnsmasq state=present
+
+    - name: DNSmasq | Add shared /nfsshare/hosts file location to dnsmasq config file so that our node IPs and node names are resolvable
+      shell: echo "addn-hosts=/nfsshare/hosts" >> /etc/dnsmasq.conf
+
+    - name: DNSmasq | Restart dnsmasq service
+      systemd:
+        state: restarted
+        daemon_reload: yes
+        name: dnsmasq
+
+        # HACK - TOFIX
+    - name: DNSmasq | Deploy dns_refresh.service
+      copy:
+        src: ../services/dns_refresh.service
+        dest: /etc/systemd/system/
+        mode: 0644
+
+    - name: DNSmasq | Start dns_refresh.service service
+      systemd: name=dns_refresh.service state=restarted enabled=yes

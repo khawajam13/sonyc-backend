@@ -13,6 +13,9 @@
 - name: MAIN | Setup NFS
   import_playbook: test-setup/setup-nfs.yml
 
+- name: MAIN | Setup DNSmasq
+  import_playbook: test-setup/setup-dnsmasq.yml
+
 - name: MAIN | Setup worker OpenVPN servers
   import_playbook: test-setup/setup-openvpn-workers.yml
 
