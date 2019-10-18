@@ -5,7 +5,6 @@
   serial: 1
 
   tasks:
-
     - name: OPENVPN | Generate config for master VPN (only to allow for cert generation)
       docker_container:
         name: openvpn_genconfig
@@ -18,7 +17,7 @@
         recreate: no
         restart: no
         detach: no
-    
+
     - name: OPENVPN | Copy over and setup client_connect.sh script that will run on client connect
       copy:
         src: ../scripts/client_connect.sh
@@ -108,6 +107,7 @@
         recreate: yes
         restart: yes
         detach: yes
+        restart_policy: always
 
 - hosts: docker_swarm_manager
   become: True
@@ -124,7 +124,7 @@
         image: kylemanna/openvpn
         volumes:
           - /nfsshare:/etc/openvpn
-        command: "easyrsa build-client-full {{ inventory_hostname }} nopass"
+        command: "easyrsa build-client-full {{ inventory_hostname }}_client nopass"
         privileged: yes
         recreate: no
         restart: no
@@ -137,42 +137,19 @@
         mode: '0755'
 
     - name: OPENVPN | Save generated certificate to keys folder
-      shell: docker run -v /nfsshare:/etc/openvpn --rm kylemanna/openvpn ovpn_getclient {{ inventory_hostname }} > /nfsshare/client_configs/{{ inventory_hostname }}.ovpn
+      shell: docker run -v /nfsshare:/etc/openvpn --rm kylemanna/openvpn ovpn_getclient {{ inventory_hostname }}_client > /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn
 
     - name: OPENVPN | Remove master remote line from config file
-      shell: sed --in-place '/{{ inventory_hostname }}/d' /nfsshare/client_configs/{{ inventory_hostname }}.ovpn
+      shell: sed --in-place '/{{ inventory_hostname }}/d' /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn
 
     - name: OPENVPN | Add server remote config to cert file and create one for each worker in master /etc/openvpn
-      shell: echo "remote {{ item }} {{ vpn_port }} udp" >> /nfsshare/client_configs/{{ inventory_hostname }}.ovpn && cp /nfsshare/client_configs/{{ inventory_hostname }}.ovpn /etc/openvpn/{{ item }}.conf && sed --in-place '/{{ item }}/d' /nfsshare/client_configs/{{ inventory_hostname }}.ovpn
+      shell: echo "remote {{ item }} {{ vpn_port }} udp" >> /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn && cp /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn /etc/openvpn/{{ item }}.conf && sed --in-place '/{{ item }}/d' /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn
       with_items: "{{ groups['docker_swarm_worker'] }}"
 
     - name: OPENVPN | Kill existing openvpn instances
-      command: "killall openvpn"
+      command: killall openvpn
       ignore_errors: yes
 
-    
-
-    # - name: OPENVPN | Create symbolic link from master /etc/hosts to shared hosts file
-    #   file:
-    #     src: /etc/hosts
-    #     dest: /nfsshare/hosts
-    #     owner: root
-    #     group: root
-    #     state: link
-
     - name: OPENVPN | Start openvpn client and connect to both VPNs
-      command: openvpn --config /nfsshare/client_configs/{{ inventory_hostname }}.ovpn --remote "{{ item }}" "{{ vpn_port }}" --daemon
+      command: openvpn --config /nfsshare/client_configs/{{ inventory_hostname }}_client.ovpn --remote "{{ item }}" "{{ vpn_port }}" --daemon
       with_items: "{{ groups['docker_swarm_worker'] }}"
-
-    # - name: OPENVPN | Start openvpn client and connect to both VPNs
-    #   service:
-    #     name: openvpn
-    #     state: restarted
-
-    # - name: Start openvpn systemd service
-    #   become: true
-    #   systemd:
-    #     name: openvpn@server
-    #     state: started
-    #     daemon_reload: yes
-    #     enabled: yes

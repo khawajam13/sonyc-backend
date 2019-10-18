@@ -32,7 +32,7 @@
           - docker
         state: latest
 
-    - name: NFSSERVER | setting up nfs server on master
+    - name: NFSSERVER | Setting up nfs server on master
       tags:
         - nfsserver
       docker_container:
@@ -47,6 +47,7 @@
         privileged: yes
         recreate: yes
         restart: yes
+        restart_policy: always
       when:
         # Run this only on primary swarm manager
         - inventory_hostname == docker_swarm_primary_manager_name
