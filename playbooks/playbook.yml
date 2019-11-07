@@ -1,23 +1,37 @@
 ---
 
 # Setup Docker Swarm
-- hosts: docker_swarm_manager,docker_swarm_worker
-  become: True
-  vars:
-    - docker_swarm_network_interface: enp0s8
-  tasks:
-    - name: MAIN | Setup Docker and Docker Swarm
-      include_role:
-        name: mohitsharma44.ansible_docker_swarm
+#- hosts: docker_swarm_manager,docker_swarm_worker
+#  become: True
+#  vars:
+#    - docker_swarm_network_interface: enp0s8
+#  tasks:
+#    - name: MAIN | Setup Docker and Docker Swarm
+#      include_role:
+#        name: mohitsharma44.ansible_docker_swarm
 
-- name: MAIN | Setup NFS
-  import_playbook: test-setup/setup-nfs.yml
+#Setup Elastic Search 
+# - hosts: local host
+#   tasks: 
+#    - name: MAIN 
+#      include_role: 
+#        name: ansible-galaxy install elastic.elasticsearch,7.4.1
 
-- name: MAIN | Setup DNSmasq
-  import_playbook: test-setup/setup-dnsmasq.yml
+- name: MAIN | Setup Elasticsearch
+  import_playbook: test-setup/setup-elasticsearchcluster.yml
 
-- name: MAIN | Setup worker OpenVPN servers
-  import_playbook: test-setup/setup-openvpn-workers.yml
+#single node elasticsearch
+#- name: MAIN | Setup Elasticsearch
+ # import_playbook: test-setup/setup-elasticsearch.yml
+
+#- name: MAIN | Setup NFS
+#  import_playbook: test-setup/setup-nfs.yml
+
+#- name: MAIN | Setup DNSmasq
+#  import_playbook: test-setup/setup-dnsmasq.yml
+
+#- name: MAIN | Setup worker OpenVPN servers
+#  import_playbook: test-setup/setup-openvpn-workers.yml
 
 # - name: MAIN | Setup OpenVPN
 #   import_playbook: test-setup/setup-openvpn.yml
