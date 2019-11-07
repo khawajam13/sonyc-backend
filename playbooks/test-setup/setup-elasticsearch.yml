@@ -1,0 +1,8 @@
+
+- name: Install Elasticsearch
+  hosts: docker_swarm_worker
+  become: True
+  roles:
+    - role: elastic.elasticsearch
+  vars:
+    es_version: 7.4.1
